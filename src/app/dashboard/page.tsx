@@ -118,6 +118,7 @@ export default function DashboardPage() {
   const [activeDrawingTool, setActiveDrawingTool] = useState("pen")
   const [activeColor, setActiveColor] = useState("#000000")
   const [negativeInput, setNegativeInput] = useState("")
+  const [isDrawingModalOpen, setIsDrawingModalOpen] = useState(false)
   
   // Design options state
   const [selectedStyle, setSelectedStyle] = useState("Black and Grey")
@@ -465,6 +466,68 @@ export default function DashboardPage() {
         onSelectPlacement={handlePlacementSelect}
       />
       
+      {/* New Drawing Modal */}
+      {isDrawingModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-[800px]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-serif font-bold">Freestyle Drawing</h2>
+              <button
+                onClick={() => setIsDrawingModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="border border-gray-400 rounded-lg flex flex-col h-[400px] bg-white overflow-hidden">
+              <div className="border-b border-gray-400 p-2 flex items-center gap-2">
+                <button
+                  className={`p-1 rounded ${activeDrawingTool === "pen" ? "bg-gray-200" : "hover:bg-gray-100"}`}
+                  onClick={() => setActiveDrawingTool("pen")}
+                >
+                  <Pen className="h-4 w-4 text-gray-700" />
+                </button>
+                <button
+                  className={`p-1 rounded ${activeDrawingTool === "eraser" ? "bg-gray-200" : "hover:bg-gray-100"}`}
+                  onClick={() => setActiveDrawingTool("eraser")}
+                >
+                  <Eraser className="h-4 w-4 text-gray-700" />
+                </button>
+                <div className="relative">
+                  <button
+                    className="p-1 rounded hover:bg-gray-100 flex items-center justify-center"
+                    style={{ backgroundColor: activeColor }}
+                  >
+                    <Circle className="h-4 w-4" style={{ color: activeColor === "#000000" ? "white" : "black" }} />
+                  </button>
+                  <input
+                    type="color"
+                    value={activeColor}
+                    onChange={(e) => setActiveColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-6 h-6 cursor-pointer"
+                  />
+                </div>
+                <button className="p-1 rounded hover:bg-gray-100 ml-auto" onClick={clearCanvas}>
+                  <Trash2 className="h-4 w-4 text-gray-700" />
+                </button>
+              </div>
+              <div className="flex-1 relative">
+                <canvas
+                  ref={canvasRef}
+                  width={800}
+                  height={400}
+                  className="w-full h-full cursor-crosshair"
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseOut={stopDrawing}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-44 bg-[#1e1e1e] text-white fixed h-full flex flex-col">
         <div className="p-4 flex-1">
@@ -558,286 +621,259 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Project content */}
+        {/* New Layout Structure */}
         <div className="container mx-auto p-6">
-          <div className="bg-[#fdfcfa] border border-gray-400 rounded-lg p-6 mb-8">
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Left third - design options */}
-              <div className="w-full md:w-1/3">
-                <div className="border border-gray-400 rounded-lg bg-white h-full p-4 flex flex-col gap-4">
-                  {/* Style selection */}
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1 border-b border-gray-200 pb-1">Style</div>
-                    <div 
-                      className="border border-gray-300 rounded-md p-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                      onClick={() => setIsStyleSelectorOpen(true)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Paintbrush className="h-5 w-5 text-gray-700" />
-                        <span className="text-sm">{selectedStyle}</span>
-                      </div>
-                      <Maximize2 className="h-4 w-4 text-gray-500" />
-                    </div>
-                  </div>
-                  
-                  {/* Body Part / Placement */}
-                  <div>
-                    <div className="text-sm text-purple-600 mb-1 border-b border-purple-200 pb-1">Body Part / Placement</div>
-                    <div 
-                      className="border border-purple-300 rounded-md p-2 flex items-center justify-between cursor-pointer hover:bg-purple-50"
-                      onClick={() => setIsPlacementSelectorOpen(true)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 border border-gray-400 flex items-center justify-center">
-                          <Square className="h-4 w-4 text-gray-700" />
-                        </div>
-                        <span className="text-sm">{selectedPlacement}</span>
-                      </div>
-                      <Maximize2 className="h-4 w-4 text-gray-500" />
-                    </div>
-                  </div>
-                  
-                  {/* Detail & Complexity */}
-                  <div>
-                    <div className="flex items-center gap-1 text-gray-700 mb-1">
-                      <span className="text-sm font-medium">DETAIL & COMPLEXITY</span>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                      <button
-                        className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
-                          detailLevel === "simple" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setDetailLevel("simple")}
-                      >
-                        <Circle className="h-3 w-3" />
-                        SIMPLE
-                      </button>
-                      <button
-                        className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
-                          detailLevel === "medium" ? "bg-purple-100 border-purple-400 text-purple-600" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setDetailLevel("medium")}
-                      >
-                        <Circle className="h-3 w-3 fill-current" />
-                        MEDIUM
-                      </button>
-                      <button
-                        className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
-                          detailLevel === "complex" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setDetailLevel("complex")}
-                      >
-                        <Circle className="h-3 w-3" />
-                        COMPLEX
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Modifiers */}
-                  <div>
-                    <div className="flex items-center gap-1 text-gray-700 mb-1">
-                      <span className="text-sm font-medium">MODIFIERS</span>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                      <button
-                        className={`text-xs py-2 border rounded-md ${
-                          selectedModifier === "masculine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setSelectedModifier("masculine")}
-                      >
-                        MASCULINE
-                      </button>
-                      <button
-                        className={`text-xs py-2 border rounded-md ${
-                          selectedModifier === "feminine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setSelectedModifier("feminine")}
-                      >
-                        FEMININE
-                      </button>
-                      <button
-                        className={`text-xs py-2 border rounded-md ${
-                          selectedModifier === "symmetrical" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
-                        }`}
-                        onClick={() => setSelectedModifier("symmetrical")}
-                      >
-                        SYMMETRICAL
-                      </button>
-                    </div>
-                  </div>
+          <div className="flex gap-6">
+            {/* Left Column - Client Inputs */}
+            <div className="w-1/3 space-y-3">
+              {/* Description Input */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <h2 className="text-xl font-serif font-bold mb-4">Enter your design ideas:</h2>
+                <Textarea
+                  placeholder="Enter a description of the tattoo..."
+                  className="w-full border-gray-400 focus:border-gray-500 focus:ring-0 bg-white"
+                  value={description}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
 
-                  {/* Negative Input */}
-                  <div>
-                    <div className="flex items-center gap-1 text-gray-700 mb-1">
-                      <span className="text-sm font-medium">NEGATIVE INPUTS</span>
-                      <InfoIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <Textarea
-                      placeholder="Enter things you don't want the model to include..."
-                      className="w-full border-gray-300 focus:border-gray-400 focus:ring-0 bg-white text-sm resize-none"
-                      value={negativeInput}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNegativeInput(e.target.value)}
-                      rows={3}
-                    />
+              {/* Style Selection */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <div className="text-sm text-gray-500 mb-2">Style</div>
+                <div 
+                  className="border border-gray-300 rounded-md p-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                  onClick={() => setIsStyleSelectorOpen(true)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Paintbrush className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm">{selectedStyle}</span>
                   </div>
+                  <Maximize2 className="h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
-              {/* Right two-thirds - client inputs */}
-              <div className="w-full md:w-2/3">
-            {/* Text description */}
-            <div className="mb-6">
-                  <h2 className="text-2xl font-serif font-bold mb-4 text-center">Enter your design ideas:</h2>
-              <Textarea
-                placeholder="Enter a description of the tattoo..."
-                    className="w-full border-gray-400 focus:border-gray-500 focus:ring-0 bg-white"
-                value={description}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
 
-            {/* Input areas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Upload image area */}
-              <div
-                    className="border border-gray-400 rounded-lg p-4 flex flex-col items-center justify-center text-center h-60 cursor-pointer hover:bg-white bg-white"
-                onClick={() => document.getElementById("image-upload")?.click()}
-              >
-                {uploadedImage ? (
-                  <div className="relative w-full h-full">
-                    <Image
-                      src={uploadedImage || "/placeholder.svg"}
-                      alt="Uploaded image"
-                      fill
-                      className="object-contain"
-                    />
-                    <button
-                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setUploadedImage(null)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-gray-700" />
-                    </button>
+              {/* Body Part / Placement */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <div className="text-sm text-purple-600 mb-2">Body Part / Placement</div>
+                <div 
+                  className="border border-purple-300 rounded-md p-2 flex items-center justify-between cursor-pointer hover:bg-purple-50"
+                  onClick={() => setIsPlacementSelectorOpen(true)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 border border-gray-400 flex items-center justify-center">
+                      <Square className="h-4 w-4 text-gray-700" />
+                    </div>
+                    <span className="text-sm">{selectedPlacement}</span>
                   </div>
-                ) : (
-                  <>
-                    <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                    <h3 className="text-lg font-medium mb-1">Upload Image</h3>
-                    <p className="text-sm text-gray-500">Drag and drop or click to upload</p>
-                  </>
-                )}
+                  <Maximize2 className="h-4 w-4 text-gray-500" />
+                </div>
+              </div>
+
+              {/* Detail & Complexity */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <div className="flex items-center gap-1 text-gray-700 mb-2">
+                  <span className="text-sm font-medium">DETAIL & COMPLEXITY</span>
+                  <InfoIcon className="h-4 w-4 text-gray-400" />
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
+                      detailLevel === "simple" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setDetailLevel("simple")}
+                  >
+                    <Circle className="h-3 w-3" />
+                    SIMPLE
+                  </button>
+                  <button
+                    className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
+                      detailLevel === "medium" ? "bg-purple-100 border-purple-400 text-purple-600" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setDetailLevel("medium")}
+                  >
+                    <Circle className="h-3 w-3 fill-current" />
+                    MEDIUM
+                  </button>
+                  <button
+                    className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
+                      detailLevel === "complex" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setDetailLevel("complex")}
+                  >
+                    <Circle className="h-3 w-3" />
+                    COMPLEX
+                  </button>
+                </div>
+              </div>
+
+              {/* Modifiers */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <div className="flex items-center gap-1 text-gray-700 mb-2">
+                  <span className="text-sm font-medium">MODIFIERS</span>
+                  <InfoIcon className="h-4 w-4 text-gray-400" />
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    className={`text-xs py-2 border rounded-md ${
+                      selectedModifier === "masculine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setSelectedModifier("masculine")}
+                  >
+                    MASCULINE
+                  </button>
+                  <button
+                    className={`text-xs py-2 border rounded-md ${
+                      selectedModifier === "feminine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setSelectedModifier("feminine")}
+                  >
+                    FEMININE
+                  </button>
+                  <button
+                    className={`text-xs py-2 border rounded-md ${
+                      selectedModifier === "symmetrical" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
+                    }`}
+                    onClick={() => setSelectedModifier("symmetrical")}
+                  >
+                    SYMMETRICAL
+                  </button>
+                </div>
+              </div>
+
+              {/* Reference Image Upload */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <h3 className="text-sm font-medium mb-2">REFERENCE IMAGE</h3>
+                <div
+                  className="border border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center text-center h-40 cursor-pointer hover:bg-gray-50"
+                  onClick={() => document.getElementById("image-upload")?.click()}
+                >
+                  {uploadedImage ? (
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={uploadedImage}
+                        alt="Uploaded image"
+                        fill
+                        className="object-contain"
+                      />
+                      <button
+                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setUploadedImage(null)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-gray-700" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500">Drag and drop or click to upload</p>
+                    </>
+                  )}
+                </div>
                 <input type="file" id="image-upload" className="hidden" accept="image/*" onChange={handleImageUpload} />
               </div>
 
-              {/* Freestyle drawing area - takes up 2/3 of the row */}
-                  <div className="border border-gray-400 rounded-lg flex flex-col h-60 md:col-span-2 bg-white overflow-hidden">
-                    <div className="border-b border-gray-400 p-2 flex items-center gap-2">
-                  <button
-                    className={`p-1 rounded ${activeDrawingTool === "pen" ? "bg-gray-200" : "hover:bg-gray-100"}`}
-                    onClick={() => setActiveDrawingTool("pen")}
-                  >
-                    <Pen className="h-4 w-4 text-gray-700" />
-                  </button>
-                  <button
-                    className={`p-1 rounded ${activeDrawingTool === "eraser" ? "bg-gray-200" : "hover:bg-gray-100"}`}
-                    onClick={() => setActiveDrawingTool("eraser")}
-                  >
-                    <Eraser className="h-4 w-4 text-gray-700" />
-                  </button>
-                  <div className="relative">
-                    <button
-                      className="p-1 rounded hover:bg-gray-100 flex items-center justify-center"
-                      style={{ backgroundColor: activeColor }}
-                    >
-                      <Circle className="h-4 w-4" style={{ color: activeColor === "#000000" ? "white" : "black" }} />
-                    </button>
-                    <input
-                      type="color"
-                      value={activeColor}
-                      onChange={(e) => setActiveColor(e.target.value)}
-                      className="absolute inset-0 opacity-0 w-6 h-6 cursor-pointer"
-                    />
-                  </div>
-                  <button className="p-1 rounded hover:bg-gray-100 ml-auto" onClick={clearCanvas}>
-                    <Trash2 className="h-4 w-4 text-gray-700" />
-                  </button>
+              {/* Freestyle Drawing Button */}
+              <button
+                onClick={() => setIsDrawingModalOpen(true)}
+                className="w-full bg-white border border-gray-400 rounded-lg p-4 hover:bg-gray-50"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Pen className="h-5 w-5 text-gray-700" />
+                  <span>Open Freestyle Drawing</span>
                 </div>
-                    <div className="flex-1 relative">
-                  <canvas
-                    ref={canvasRef}
-                    width={600}
-                    height={200}
-                    className="w-full h-full cursor-crosshair"
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseOut={stopDrawing}
-                  />
-                  <div className="absolute bottom-2 right-2 text-lg font-serif text-gray-400">Freestyle Drawing</div>
-                </div>
-              </div>
-            </div>
+              </button>
 
-            {/* Submit button */}
-            <div className="flex justify-center">
+              {/* Negative Input */}
+              <div className="bg-white border border-gray-400 rounded-lg p-4">
+                <div className="flex items-center gap-1 text-gray-700 mb-2">
+                  <span className="text-sm font-medium">NEGATIVE INPUTS</span>
+                  <InfoIcon className="h-4 w-4 text-gray-400" />
+                </div>
+                <Textarea
+                  placeholder="Enter things you don't want the model to include..."
+                  className="w-full border-gray-300 focus:border-gray-400 focus:ring-0 bg-white text-sm resize-none"
+                  value={negativeInput}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNegativeInput(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              {/* Generate Button */}
               <Button
-                className="bg-[#1e1e1e] hover:bg-black text-white px-10 py-6 text-lg"
+                className="w-full bg-[#1e1e1e] hover:bg-black text-white py-6 text-lg"
                 onClick={handleSubmit}
                 disabled={isGenerating}
               >
-                    {isGenerating ? "Submitting..." : "Submit"}
+                {isGenerating ? "Generating..." : "Generate New Tattoo"}
               </Button>
-                </div>
-              </div>
             </div>
-          </div>
 
-          {/* Generated designs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {generatedDesigns.map((design) => (
-              <Card key={design.id} className="border border-gray-400 overflow-hidden bg-white">
-                <div className="relative aspect-square">
+            {/* Right Column - Results */}
+            <div className="w-2/3 space-y-6">
+              {/* Latest Generated Result */}
+              <div className="bg-white border border-gray-400 rounded-lg overflow-hidden">
+                <div className="aspect-square relative">
                   <Image
-                    src={design.image || "/placeholder.svg"}
-                    alt={`Generated design ${design.id}`}
+                    src={generatedDesigns[0]?.image || "/placeholder.svg"}
+                    alt="Latest generated design"
                     fill
                     className="object-cover"
                   />
                 </div>
-                <div className="border-t border-gray-400 p-2 flex items-center justify-center gap-3">
-                    <button
-                    className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-full"
-                      onClick={() => handleSaveDesign(design.id)}
-                    >
-                    <Heart className="h-4 w-4 text-gray-700" />
-                    </button>
-                    <button
-                    className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-full"
-                      onClick={() => handleEditDesign(design.id)}
-                    >
-                    <Edit className="h-4 w-4 text-gray-700" />
-                    <span className="ml-1">Edit</span>
-                    </button>
-                    <button
-                    className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-full"
-                      onClick={() => handleDeleteDesign(design.id)}
-                    >
-                    <Trash2 className="h-4 w-4 text-gray-700" />
-                    </button>
-                    <button
-                    className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-full"
-                      onClick={() => handleDownloadDesign(design.id)}
-                    >
-                    <Download className="h-4 w-4 text-gray-700" />
-                    </button>
+                <div className="border-t border-gray-400 p-3 flex items-center justify-center gap-6">
+                  <button className="flex items-center gap-2 hover:text-purple-600">
+                    <Heart className="h-5 w-5" />
+                    <span>Favourite</span>
+                  </button>
+                  <button className="flex items-center gap-2 hover:text-purple-600">
+                    <Edit className="h-5 w-5" />
+                    <span>Save</span>
+                  </button>
+                  <button className="flex items-center gap-2 hover:text-purple-600">
+                    <Download className="h-5 w-5" />
+                    <span>Download</span>
+                  </button>
+                  <button className="flex items-center gap-2 hover:text-purple-600">
+                    <Maximize2 className="h-5 w-5" />
+                    <span>Update</span>
+                  </button>
                 </div>
-              </Card>
-            ))}
+              </div>
+
+              {/* Saved Designs Grid */}
+              <div>
+                <h2 className="text-xl font-serif font-bold mb-4">Saved Designs</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  {generatedDesigns.slice(1).map((design) => (
+                    <div key={design.id} className="bg-white border border-gray-400 rounded-lg overflow-hidden">
+                      <div className="aspect-square relative">
+                        <Image
+                          src={design.image}
+                          alt={`Saved design ${design.id}`}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="border-t border-gray-400 p-2 flex items-center justify-center gap-2">
+                        <button className="p-1 hover:text-purple-600">
+                          <Heart className="h-4 w-4" />
+                        </button>
+                        <button className="p-1 hover:text-purple-600">
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <button className="p-1 hover:text-purple-600">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>
