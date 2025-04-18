@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { tattooStyles } from "../data/tattoo-styles";
 import Image from "next/image";
 import { useState } from "react";
@@ -32,9 +32,15 @@ export function StyleSelector({ isOpen, onClose, onSelectStyle }: StyleSelectorP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden">
+      <DialogContent 
+        className="sm:max-w-[550px] p-0 overflow-hidden"
+        aria-describedby="style-selector-description"
+      >
         <DialogHeader className="px-4 py-2 border-b">
           <DialogTitle className="text-base">COMMON STYLES</DialogTitle>
+          <DialogDescription className="sr-only">
+            Select a tattoo style from the available options. Each style is represented by an image and name.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="grid grid-cols-3 gap-0 max-h-[500px] overflow-y-auto p-1">
@@ -50,7 +56,7 @@ export function StyleSelector({ isOpen, onClose, onSelectStyle }: StyleSelectorP
                     src={style.image}
                     alt={style.name}
                     fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
                     className="object-cover"
                   />
                   {selectedStyle === style.id && (

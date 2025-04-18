@@ -35,6 +35,7 @@ import {
   History,
   X,
 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 // Sample generated designs
 const sampleDesigns = [
@@ -115,6 +116,11 @@ export default function DashboardPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedDesigns, setGeneratedDesigns] = useState(sampleDesigns)
+  const [latestGeneration, setLatestGeneration] = useState<{
+    id: string;
+    image: string;
+    status: 'pending' | 'processing' | 'generating' | 'completed' | 'failed';
+  } | null>(null)
   const [activeDrawingTool, setActiveDrawingTool] = useState("pen")
   const [activeColor, setActiveColor] = useState("#000000")
   const [negativeInput, setNegativeInput] = useState("")
@@ -278,7 +284,6 @@ export default function DashboardPage() {
   // Handle form submission
   const handleSubmit = async () => {
     const errors = validateInputs()
-    
     if (errors.length > 0) {
       errors.forEach(error => toast.error(error.message))
       return
@@ -287,67 +292,102 @@ export default function DashboardPage() {
     setIsGenerating(true)
 
     try {
-      const canvasImageBase64 = getCanvasImage()
+      // First, create the design request in Supabase
+      const { data: designRequest, error: insertError } = await supabase
+        .from('design_requests')
+        .insert({
+          style: selectedStyle,
+          body_placement: selectedPlacement,
+          detail_level: detailLevel,
+          modifier: selectedModifier,
+          negative_prompt: negativeInput,
+          description: description,
+          reference_image_url: uploadedImage,
+          freestyle_drawing_url: getCanvasImage(),
+          status: 'pending'
+        })
+        .select()
+        .single()
 
-      // Prepare the payload for the API
-      const designRequestPayload = {
-        style: selectedStyle,
-        bodyPlacement: selectedPlacement,
-        detailLevel: detailLevel,
-        modifier: selectedModifier,
-        negativePrompt: negativeInput,
-        description: description,
-        referenceImage: uploadedImage,
-        freestyleDrawing: canvasImageBase64,
-      }
+      if (insertError) throw insertError
 
-      // Log the payload being sent (optional debugging)
-      console.log('Sending to API:', designRequestPayload)
-
-      // Send data to your API route
-      const response = await fetch('/api/designs', {
+      // Start the generation process
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(designRequestPayload),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: designRequest.id,
+          style: selectedStyle,
+          bodyPlacement: selectedPlacement,
+          detailLevel: detailLevel,
+          modifier: selectedModifier,
+          negativePrompt: negativeInput,
+          description: description,
+          referenceImage: uploadedImage,
+          freestyleDrawing: getCanvasImage()
+        })
       })
 
       const result = await response.json()
+      if (!result.success) throw new Error(result.error)
 
-      if (!response.ok) {
-        // Handle API errors (e.g., from Supabase upload/insert)
-        throw new Error(result.message || `API request failed with status ${response.status}`)
-      }
+      // Start polling for the result
+      startPolling(designRequest.id)
+      toast.success('Design generation started!')
 
-      // Success!
-      toast.success(result.message || 'Design request submitted successfully!')
-      console.log('API Response Data (inserted record):', result.data)
-
-      if (result.data) {
-        const newRequestEntry: DesignRequest = {
-          style: result.data.style,
-          bodyPlacement: result.data.body_placement,
-          detailLevel: result.data.detail_level,
-          modifier: result.data.modifier,
-          negativePrompt: result.data.negative_prompt,
-          description: result.data.description,
-          referenceImage: result.data.reference_image_url,
-          freestyleDrawing: result.data.freestyle_drawing_url,
-          timestamp: new Date(result.data.created_at).getTime(),
-        }
-        setStoredRequests(prevRequests => [...prevRequests, newRequestEntry])
-      }
-
-    } catch (error: unknown) {
-      console.error('Error submitting design request:', error)
-      let errorMessage = 'Failed to submit design request'
-      if (error instanceof Error) {
-        errorMessage = error.message
-      }
-      toast.error(`Error: ${errorMessage}`)
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to generate design')
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  // Add polling function to check generation status
+  const startPolling = async (requestId: string) => {
+    const pollInterval = setInterval(async () => {
+      const { data: request } = await supabase
+        .from('design_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single()
+
+      if (request) {
+        // Update latest generation status
+        setLatestGeneration(prev => ({
+          id: requestId,
+          image: request.generated_image_url || '',
+          status: request.status
+        }))
+
+        if (request.status === 'completed') {
+          clearInterval(pollInterval)
+          // Add to saved designs only if explicitly saved
+          toast.success('Design generated successfully!')
+        } else if (request.status === 'failed') {
+          clearInterval(pollInterval)
+          toast.error('Generation failed')
+        }
+      }
+    }, 5000) // Poll every 5 seconds
+  }
+
+  // Function to get status message
+  const getStatusMessage = () => {
+    if (!latestGeneration) return 'No generation in progress'
+    switch (latestGeneration.status) {
+      case 'pending':
+        return 'Preparing generation...'
+      case 'processing':
+        return 'Processing your request...'
+      case 'generating':
+        return 'Generating your design...'
+      case 'completed':
+        return 'Generation complete!'
+      case 'failed':
+        return 'Generation failed'
+      default:
+        return 'Unknown status'
     }
   }
 
@@ -374,10 +414,8 @@ export default function DashboardPage() {
   
   // Handle style selection from popup
   const handleSelectStyle = (style: TattooStyle) => {
-    if (style && style.name) {
-      setSelectedStyle(style.name)
-      console.log(`Selected style: ${style.name}`)
-    }
+    setSelectedStyle(style.name)
+    setIsStyleSelectorOpen(false)
   }
   
   // Handle placement selection
@@ -453,11 +491,13 @@ export default function DashboardPage() {
       )}
 
       {/* Style Selector Modal */}
-      <StyleSelector 
-        isOpen={isStyleSelectorOpen} 
-        onClose={() => setIsStyleSelectorOpen(false)} 
-        onSelectStyle={handleSelectStyle} 
-      />
+      {isStyleSelectorOpen && (
+        <StyleSelector
+          isOpen={isStyleSelectorOpen}
+          onClose={() => setIsStyleSelectorOpen(false)}
+          onSelectStyle={handleSelectStyle}
+        />
+      )}
       
       {/* Placement Selector Modal */}
       <PlacementSelector
@@ -817,27 +857,59 @@ export default function DashboardPage() {
               {/* Latest Generated Result */}
               <div className="bg-white border border-gray-400 rounded-lg overflow-hidden">
                 <div className="aspect-square relative">
-                  <Image
-                    src={generatedDesigns[0]?.image || "/placeholder.svg"}
-                    alt="Latest generated design"
-                    fill
-                    className="object-cover"
-                  />
+                  {isGenerating || (latestGeneration && latestGeneration.status !== 'completed') ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+                      <p className="text-gray-600 text-center px-4">{getStatusMessage()}</p>
+                    </div>
+                  ) : latestGeneration?.image ? (
+                    <Image
+                      src={latestGeneration.image}
+                      alt="Latest generated design"
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                      <p className="text-gray-400">No generated design yet</p>
+                    </div>
+                  )}
                 </div>
                 <div className="border-t border-gray-400 p-3 flex items-center justify-center gap-6">
-                  <button className="flex items-center gap-2 hover:text-purple-600">
+                  <button 
+                    className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
+                    disabled={latestGeneration?.status !== 'completed'}
+                  >
                     <Heart className="h-5 w-5" />
                     <span>Favourite</span>
                   </button>
-                  <button className="flex items-center gap-2 hover:text-purple-600">
+                  <button 
+                    className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
+                    disabled={latestGeneration?.status !== 'completed'}
+                    onClick={() => {
+                      if (latestGeneration?.image) {
+                        setGeneratedDesigns(prev => [{
+                          id: Date.now(),
+                          image: latestGeneration.image
+                        }, ...prev])
+                        toast.success('Design saved!')
+                      }
+                    }}
+                  >
                     <Edit className="h-5 w-5" />
                     <span>Save</span>
                   </button>
-                  <button className="flex items-center gap-2 hover:text-purple-600">
+                  <button 
+                    className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
+                    disabled={latestGeneration?.status !== 'completed'}
+                  >
                     <Download className="h-5 w-5" />
                     <span>Download</span>
                   </button>
-                  <button className="flex items-center gap-2 hover:text-purple-600">
+                  <button 
+                    className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
+                    disabled={latestGeneration?.status !== 'completed'}
+                  >
                     <Maximize2 className="h-5 w-5" />
                     <span>Update</span>
                   </button>
@@ -848,14 +920,15 @@ export default function DashboardPage() {
               <div>
                 <h2 className="text-xl font-serif font-bold mb-4">Saved Designs</h2>
                 <div className="grid grid-cols-3 gap-4">
-                  {generatedDesigns.slice(1).map((design) => (
+                  {generatedDesigns.map((design) => (
                     <div key={design.id} className="bg-white border border-gray-400 rounded-lg overflow-hidden">
-                      <div className="aspect-square relative">
+                      <div className="relative w-full h-48">
                         <Image
                           src={design.image}
-                          alt={`Saved design ${design.id}`}
+                          alt={`Generated design ${design.id}`}
                           fill
-                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          className="object-cover rounded-lg"
                         />
                       </div>
                       <div className="border-t border-gray-400 p-2 flex items-center justify-center gap-2">
@@ -865,7 +938,10 @@ export default function DashboardPage() {
                         <button className="p-1 hover:text-purple-600">
                           <Download className="h-4 w-4" />
                         </button>
-                        <button className="p-1 hover:text-purple-600">
+                        <button 
+                          className="p-1 hover:text-purple-600"
+                          onClick={() => setGeneratedDesigns(prev => prev.filter(d => d.id !== design.id))}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>

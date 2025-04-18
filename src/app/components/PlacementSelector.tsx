@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Check } from "lucide-react";
 
@@ -67,9 +67,15 @@ export function PlacementSelector({ isOpen, onClose, onSelectPlacement }: Placem
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden">
+      <DialogContent 
+        className="sm:max-w-[550px] p-0 overflow-hidden"
+        aria-describedby="placement-selector-description"
+      >
         <DialogHeader className="px-4 py-2 border-b">
           <DialogTitle className="text-base">BODY PART / PLACEMENT</DialogTitle>
+          <DialogDescription className="sr-only">
+            Select a body placement for your tattoo. Each option shows a different body part or placement area.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="grid grid-cols-3 gap-0 max-h-[500px] overflow-y-auto p-1">
