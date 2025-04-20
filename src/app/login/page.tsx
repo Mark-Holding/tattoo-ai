@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,19 +11,150 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Flower, Github, Twitter } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import toast from "react-hot-toast"
+
+// Create a persistent log function for client-side
+const persistentLog = (message: string, data?: any) => {
+  if (typeof window !== 'undefined') {
+    const timestamp = new Date().toISOString()
+    const logMessage = `[${timestamp}] ${message}`
+    console.log(logMessage, data || '')
+    // Store in localStorage for persistence
+    const logs = JSON.parse(localStorage.getItem('auth-logs') || '[]')
+    logs.push({ timestamp, message, data })
+    localStorage.setItem('auth-logs', JSON.stringify(logs))
+  }
+}
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  async function onSubmit(event: React.FormEvent) {
+  // Clear logs on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth-logs')
+    }
+  }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      persistentLog('Starting login process...')
+      setIsLoading(true)
+      
+      persistentLog('Attempting to sign in with password...')
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        persistentLog('Login error details:', error)
+        throw error
+      }
+
+      persistentLog('Sign in successful, checking session...')
+      if (!data.session) {
+        persistentLog('No session in sign in response')
+        throw new Error('No session returned after login')
+      }
+
+      persistentLog('Session verified, attempting redirect...')
+      // Use window.location for a hard redirect to ensure fresh state
+      window.location.href = '/dashboard'
+    } catch (error: any) {
+      persistentLog('Login process failed:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+      toast.error(error.message || 'Failed to sign in')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleSignUp(event: React.FormEvent) {
     event.preventDefault()
     setIsLoading(true)
 
-    setTimeout(() => {
+    try {
+      // First, sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            name: name,
+          }
+        },
+      })
+
+      if (authError) {
+        console.error('Auth error details:', authError)
+        throw authError
+      }
+
+      if (!authData.user) {
+        throw new Error('No user data returned after signup')
+      }
+
+      // Create profile using the API route
+      const response = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: authData.user.id,
+          email: email,
+          name: name || email.split('@')[0],
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('Profile creation error:', result.error)
+        // If profile creation fails, we should clean up the auth user
+        await supabase.auth.signOut()
+        throw new Error(result.error)
+      }
+
+      toast.success("Please check your email to confirm your account!")
+      // Clear the form
+      setEmail("")
+      setPassword("")
+      setName("")
+      
+    } catch (error: any) {
+      console.error('Detailed error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+      
+      // More user-friendly error messages
+      if (error.message?.includes('unique constraint')) {
+        toast.error("This email is already registered")
+      } else if (error.message?.includes('password')) {
+        toast.error("Password must be at least 6 characters")
+      } else if (error.message?.includes('email')) {
+        toast.error("Please enter a valid email address")
+      } else {
+        toast.error(error.message || "Failed to create account")
+      }
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -60,7 +191,7 @@ export default function LoginPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={onSubmit}>
+                  <form onSubmit={handleLogin}>
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-white">
@@ -146,7 +277,7 @@ export default function LoginPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={onSubmit}>
+                  <form onSubmit={handleSignUp}>
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="name" className="text-white">
@@ -155,6 +286,8 @@ export default function LoginPage() {
                         <Input
                           id="name"
                           placeholder="John Doe"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
                           required
                           className="bg-black/20 border-gray-700 text-white placeholder:text-gray-500"
                         />
@@ -167,6 +300,8 @@ export default function LoginPage() {
                           id="email-signup"
                           placeholder="name@example.com"
                           type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
                           required
                           className="bg-black/20 border-gray-700 text-white placeholder:text-gray-500"
                         />
@@ -178,17 +313,8 @@ export default function LoginPage() {
                         <Input
                           id="password-signup"
                           type="password"
-                          required
-                          className="bg-black/20 border-gray-700 text-white placeholder:text-gray-500"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="confirm-password" className="text-white">
-                          Confirm Password
-                        </Label>
-                        <Input
-                          id="confirm-password"
-                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
                           required
                           className="bg-black/20 border-gray-700 text-white placeholder:text-gray-500"
                         />
@@ -196,6 +322,7 @@ export default function LoginPage() {
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="terms"
+                          required
                           className="border-gray-700 data-[state=checked]:bg-white data-[state=checked]:border-white"
                         />
                         <Label htmlFor="terms" className="text-sm text-gray-300">
@@ -242,23 +369,9 @@ export default function LoginPage() {
               </Card>
             </TabsContent>
           </Tabs>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-400">
-              By using our service, you agree to our{" "}
-              <Link href="/terms" className="text-gray-400 hover:text-white">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-gray-400 hover:text-white">
-                Privacy Policy
-              </Link>
-            </p>
-          </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="py-6 border-t border-gray-800 bg-[#1e1e1e]">
         <div className="container flex flex-col items-center justify-center gap-4 text-center md:flex-row md:justify-between">
           <p className="text-xs text-gray-400">© {new Date().getFullYear()} Tattoo. All rights reserved.</p>
