@@ -55,26 +55,41 @@ export async function POST(req: Request) {
     }
 
     const prediction = JSON.parse(body)
-    console.log('Webhook payload:', prediction)
+    console.log('Full webhook payload:', JSON.stringify(prediction, null, 2))
+    console.log('Prediction status:', prediction.status)
+    console.log('Prediction output:', prediction.output)
+    console.log('Prediction ID:', prediction.id)
 
     if (prediction.status === 'succeeded') {
       // Get the generated image URL from the prediction output
-      const generatedImageUrl = prediction.output[0]
+      const generatedImageUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output
+      console.log('Generated image URL:', generatedImageUrl)
 
-      await supabase
+      const { data, error } = await supabase
         .from('design_requests')
         .update({ 
           status: 'completed',
           generated_image_url: generatedImageUrl
         })
         .eq('replicate_prediction_id', prediction.id)
+        .select()
 
-      console.log('Updated design request with generated image:', generatedImageUrl)
+      if (error) {
+        console.error('Error updating design request:', error)
+        throw error
+      }
+
+      console.log('Updated design request:', data)
     } else if (prediction.status === 'failed') {
-      await supabase
+      const { error } = await supabase
         .from('design_requests')
         .update({ status: 'failed' })
         .eq('replicate_prediction_id', prediction.id)
+
+      if (error) {
+        console.error('Error updating failed status:', error)
+        throw error
+      }
 
       console.log('Updated design request status to failed')
     }

@@ -292,20 +292,25 @@ export default function DashboardPage() {
     setIsGenerating(true)
 
     try {
+      // Create the request object
+      const requestObject = {
+        style: selectedStyle,
+        body_placement: selectedPlacement,
+        detail_level: detailLevel,
+        modifier: selectedModifier,
+        negative_prompt: negativeInput,
+        description: description,
+        reference_image_url: uploadedImage,
+        freestyle_drawing_url: getCanvasImage(),
+        status: 'pending'
+      }
+      
+      console.log('Submitting design request with:', requestObject)
+
       // First, create the design request in Supabase
       const { data: designRequest, error: insertError } = await supabase
         .from('design_requests')
-        .insert({
-          style: selectedStyle,
-          body_placement: selectedPlacement,
-          detail_level: detailLevel,
-          modifier: selectedModifier,
-          negative_prompt: negativeInput,
-          description: description,
-          reference_image_url: uploadedImage,
-          freestyle_drawing_url: getCanvasImage(),
-          status: 'pending'
-        })
+        .insert(requestObject)
         .select()
         .single()
 
@@ -392,24 +397,20 @@ export default function DashboardPage() {
   }
 
   // Handle design actions
-  const handleSaveDesign = (id: number) => {
-    // Implementation for saving a design
-    console.log(`Saving design ${id}`)
+  const handleSaveDesign = (_id: number) => {
+    // TODO: Implement save design functionality
   }
 
-  const handleEditDesign = (id: number) => {
-    // Implementation for editing a design
-    console.log(`Editing design ${id}`)
+  const handleEditDesign = (_id: number) => {
+    // TODO: Implement edit design functionality
   }
 
-  const handleDeleteDesign = (id: number) => {
-    // Implementation for deleting a design
-    setGeneratedDesigns(generatedDesigns.filter((design) => design.id !== id))
+  const handleDeleteDesign = async (_id: number) => {
+    // TODO: Implement delete design functionality
   }
 
-  const handleDownloadDesign = (id: number) => {
-    // Implementation for downloading a design
-    console.log(`Downloading design ${id}`)
+  const handleDownloadDesign = (_id: number) => {
+    // TODO: Implement download design functionality
   }
   
   // Handle style selection from popup
@@ -649,6 +650,19 @@ export default function DashboardPage() {
             </div>
             <span className="text-xs font-medium">User</span>
           </div>
+          <button
+            onClick={async () => {
+              const { error } = await supabase.auth.signOut()
+              if (error) {
+                toast.error('Failed to logout')
+              } else {
+                window.location.href = '/login'
+              }
+            }}
+            className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-white/10 rounded-md px-2 py-1"
+          >
+            Logout
+          </button>
         </div>
       </aside>
 
@@ -721,7 +735,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
                       detailLevel === "simple" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setDetailLevel("simple")}
+                    onClick={() => {
+                      setDetailLevel("simple");
+                    }}
                   >
                     <Circle className="h-3 w-3" />
                     SIMPLE
@@ -730,7 +746,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
                       detailLevel === "medium" ? "bg-purple-100 border-purple-400 text-purple-600" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setDetailLevel("medium")}
+                    onClick={() => {
+                      setDetailLevel("medium");
+                    }}
                   >
                     <Circle className="h-3 w-3 fill-current" />
                     MEDIUM
@@ -739,7 +757,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md flex items-center justify-center gap-1 ${
                       detailLevel === "complex" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setDetailLevel("complex")}
+                    onClick={() => {
+                      setDetailLevel("complex");
+                    }}
                   >
                     <Circle className="h-3 w-3" />
                     COMPLEX
@@ -758,7 +778,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md ${
                       selectedModifier === "masculine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setSelectedModifier("masculine")}
+                    onClick={() => {
+                      setSelectedModifier("masculine");
+                    }}
                   >
                     MASCULINE
                   </button>
@@ -766,7 +788,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md ${
                       selectedModifier === "feminine" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setSelectedModifier("feminine")}
+                    onClick={() => {
+                      setSelectedModifier("feminine");
+                    }}
                   >
                     FEMININE
                   </button>
@@ -774,7 +798,9 @@ export default function DashboardPage() {
                     className={`text-xs py-2 border rounded-md ${
                       selectedModifier === "symmetrical" ? "bg-gray-100 border-gray-400" : "border-gray-300 text-gray-500"
                     }`}
-                    onClick={() => setSelectedModifier("symmetrical")}
+                    onClick={() => {
+                      setSelectedModifier("symmetrical");
+                    }}
                   >
                     SYMMETRICAL
                   </button>

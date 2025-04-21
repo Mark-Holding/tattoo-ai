@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase"
 import toast from "react-hot-toast"
 
 // Create a persistent log function for client-side
-const persistentLog = (message: string, data?: any) => {
+const persistentLog = (message: string, data?: unknown) => {
   if (typeof window !== 'undefined') {
     const timestamp = new Date().toISOString()
     const logMessage = `[${timestamp}] ${message}`

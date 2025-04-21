@@ -4,6 +4,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Flower, Home, FileText, PlusCircle, Settings, HelpCircle, User, BookOpen } from "lucide-react"
+import { toast } from "react-hot-toast"
+import { supabase } from "@/lib/supabase"
 
 // Tattoo styles data
 const tattooStyles = [
@@ -230,6 +232,19 @@ export default function DesignGuidePage() {
             </div>
             <span className="text-xs font-medium">User</span>
           </div>
+          <button
+            onClick={async () => {
+              const { error } = await supabase.auth.signOut()
+              if (error) {
+                toast.error('Failed to logout')
+              } else {
+                window.location.href = '/login'
+              }
+            }}
+            className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-white/10 rounded-md px-2 py-1"
+          >
+            Logout
+          </button>
         </div>
       </aside>
 

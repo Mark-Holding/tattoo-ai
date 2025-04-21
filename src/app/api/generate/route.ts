@@ -42,12 +42,23 @@ export async function POST(req: Request) {
     if (process.env.NODE_ENV === 'development' && process.env.NGROK_URL) {
       // In development, use the ngrok URL from environment variable
       webhookUrl = `${process.env.NGROK_URL}/api/replicate-webhook`
+      console.log('Using development webhook URL:', webhookUrl)
+      console.log('NGROK_URL env var:', process.env.NGROK_URL)
     } else {
       // In production or if no ngrok URL is set, use the host header
       const host = req.headers.get('host')
       webhookUrl = `https://${host}/api/replicate-webhook`
+      console.log('Using production webhook URL:', webhookUrl)
+      console.log('Host header:', host)
     }
     
+    // Log the prediction request
+    console.log('Sending prediction request to Replicate:', {
+      prompt,
+      webhook: webhookUrl,
+      webhook_events_filter: ["completed"]
+    })
+
     // Start the prediction with webhook
     const prediction = await replicate.predictions.create({
       version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
@@ -61,6 +72,12 @@ export async function POST(req: Request) {
       },
       webhook: webhookUrl,
       webhook_events_filter: ["completed"] // We only want the final result
+    })
+
+    console.log('Prediction created:', {
+      id: prediction.id,
+      status: prediction.status,
+      webhook: prediction.webhook
     })
 
     // Update the database with the prediction ID

@@ -9,7 +9,11 @@ const log = (message: string, data?: any) => {
 }
 
 export async function middleware(req: NextRequest) {
-  log('Middleware triggered for path:', req.nextUrl.pathname)
+  log('Request received:', {
+    method: req.method,
+    path: req.nextUrl.pathname,
+    headers: Object.fromEntries(req.headers)
+  })
   
   // Create a response object that we can modify
   const res = NextResponse.next()
@@ -72,5 +76,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*', '/profile/:path*', '/login']
+  matcher: [
+    '/api/:path*',
+    '/dashboard/:path*',
+    '/profile/:path*',
+    '/login'
+  ]
 } 
