@@ -4,11 +4,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Flower, Home, FileText, PlusCircle, Settings, HelpCircle, User, BookOpen, Trash2 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast, Toaster } from "react-hot-toast"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/contexts/UserContext"
 import { Input } from "@/components/ui/input"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 // Tattoo styles data
 const tattooStyles = [
@@ -151,6 +154,8 @@ interface Project {
 
 export default function DesignGuidePage() {
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Project state
   const [projects, setProjects] = useState<Project[]>([])
@@ -158,6 +163,47 @@ export default function DesignGuidePage() {
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
   const newProjectInputRef = useRef<HTMLInputElement>(null)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  
+  // Unsaved changes warning state
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  
+  // Get unsaved design status from localStorage or sessionStorage
+  const checkForUnsavedDesign = useCallback(() => {
+    // Check dashboard state via localStorage/sessionStorage
+    // You can add this feature in a future iteration
+    // For now, we'll just load and check this value globally
+    const unsavedDesignData = sessionStorage.getItem('unsavedDesign')
+    return !!unsavedDesignData
+  }, [])
+  
+  // Safe navigation handler
+  const handleNavigation = useCallback((href: string) => {
+    const hasUnsavedDesign = checkForUnsavedDesign()
+    if (hasUnsavedDesign) {
+      // Show our custom dialog
+      setPendingNavigation(href)
+      setShowNavigationWarning(true)
+    } else {
+      // Safe to navigate
+      window.location.href = href
+    }
+  }, [checkForUnsavedDesign])
+
+  // Confirm navigation and discard changes
+  const confirmNavigation = () => {
+    setShowNavigationWarning(false)
+    if (pendingNavigation) {
+      window.location.href = pendingNavigation
+    }
+  }
+  
+  // Cancel navigation and stay on page
+  const cancelNavigation = () => {
+    setShowNavigationWarning(false)
+    setPendingNavigation(null)
+  }
 
   // Fetch projects on mount and when user changes
   useEffect(() => {
@@ -174,6 +220,12 @@ export default function DesignGuidePage() {
 
         if (error) throw error
         setProjects(data || [])
+        
+        // Check for project parameter in URL
+        const projectIdFromUrl = searchParams.get('project')
+        if (projectIdFromUrl) {
+          setActiveProjectId(projectIdFromUrl)
+        }
       } catch (error: any) {
         toast.error(`Failed to fetch projects: ${error.message}`)
         console.error("Error fetching projects:", error)
@@ -184,7 +236,7 @@ export default function DesignGuidePage() {
     }
 
     fetchProjects()
-  }, [user])
+  }, [user, searchParams])
 
   // Focus input when it appears
   useEffect(() => {
@@ -259,6 +311,38 @@ export default function DesignGuidePage() {
 
   return (
     <div className="flex min-h-screen bg-[#f8f7f5]">
+      {/* Toast notifications */}
+      <Toaster position="top-right" />
+      
+      {/* Navigation Warning Dialog */}
+      <Dialog open={showNavigationWarning} onOpenChange={setShowNavigationWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved Design</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p className="text-gray-700">
+              You have an unsaved design that will be lost if you navigate away. Would you like to save it first?
+            </p>
+          </div>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={confirmNavigation}
+            >
+              Continue Without Saving
+            </Button>
+            <Button
+              type="button"
+              onClick={cancelNavigation}
+            >
+              Go Back and Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Sidebar */}
       <aside className="w-44 bg-[#1e1e1e] text-white fixed h-full flex flex-col">
         <div className="p-4 flex-1">
@@ -268,13 +352,13 @@ export default function DesignGuidePage() {
           </div>
 
           <nav className="space-y-1">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+            <div
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+              onClick={() => handleNavigation(activeProjectId ? `/dashboard?project=${activeProjectId}` : '/dashboard')}
             >
               <Home className="h-4 w-4" />
               <span className="text-sm">Dashboard</span>
-            </Link>
+            </div>
             <button
               onClick={() => {
                 setIsCreatingProject(true)
@@ -311,14 +395,21 @@ export default function DesignGuidePage() {
                   <p className="text-xs text-gray-500 px-2 py-0.5">No projects yet</p>
                 ) : (
                   projects.map((project) => (
-                    <div key={project.id} className="group flex items-center justify-between hover:bg-white/10 rounded-md">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="flex-grow block px-2 py-0.5 text-xs text-gray-400 group-hover:text-white truncate"
+                    <div 
+                      key={project.id} 
+                      className={`group flex items-center justify-between ${
+                        activeProjectId === project.id ? 'bg-white/20' : 'hover:bg-white/10'
+                      } rounded-md`}
+                    >
+                      <div
+                        className={`flex-grow block px-2 py-0.5 text-xs ${
+                          activeProjectId === project.id ? 'text-white font-medium' : 'text-gray-400'
+                        } group-hover:text-white truncate cursor-pointer`}
                         title={project.name}
+                        onClick={() => handleNavigation(`/dashboard?project=${project.id}`)}
                       >
                         {project.name}
-                      </Link>
+                      </div>
                       <button
                         onClick={() => handleDeleteProject(project.id, project.name)}
                         className="p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1"
@@ -331,29 +422,29 @@ export default function DesignGuidePage() {
                 )}
               </div>
             </div>
-            <Link href="/design-guide" className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/10 text-white">
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/10 text-white">
               <BookOpen className="h-4 w-4" />
               <span className="text-sm">Design Guide</span>
-            </Link>
+            </div>
           </nav>
         </div>
 
         {/* Bottom navigation */}
         <div className="p-4 space-y-1">
-          <Link
-            href="/settings"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+            onClick={() => handleNavigation('/settings')}
           >
             <Settings className="h-4 w-4" />
             <span className="text-sm">Settings</span>
-          </Link>
-          <Link
-            href="/help"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+          </div>
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+            onClick={() => handleNavigation('/help')}
           >
             <HelpCircle className="h-4 w-4" />
             <span className="text-sm">Help</span>
-          </Link>
+          </div>
         </div>
 
         {/* User profile at bottom of sidebar */}
@@ -366,11 +457,17 @@ export default function DesignGuidePage() {
           </div>
           <button
             onClick={async () => {
-              const { error } = await supabase.auth.signOut()
-              if (error) {
-                toast.error('Failed to logout')
+              const hasUnsavedDesign = checkForUnsavedDesign()
+              if (hasUnsavedDesign) {
+                setPendingNavigation('/login')
+                setShowNavigationWarning(true)
               } else {
-                window.location.href = '/login'
+                const { error } = await supabase.auth.signOut()
+                if (error) {
+                  toast.error('Failed to logout')
+                } else {
+                  window.location.href = '/login'
+                }
               }
             }}
             className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-white/10 rounded-md px-2 py-1"

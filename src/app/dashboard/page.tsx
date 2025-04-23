@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -32,12 +32,13 @@ import {
   Paintbrush,
   Maximize2,
   HelpCircle as InfoIcon,
-  History,
   X,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/contexts/UserContext"
 import { Input } from "@/components/ui/input"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 // Sample generated designs
 const sampleDesigns = [
@@ -119,6 +120,8 @@ interface ProjectDesign {
 
 export default function DashboardPage() {
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [description, setDescription] = useState("")
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -146,7 +149,6 @@ export default function DashboardPage() {
   const [lastX, setLastX] = useState(0)
   const [lastY, setLastY] = useState(0)
 
-  const [showHistory, setShowHistory] = useState(false)
   const [storedRequests, setStoredRequests] = useState<DesignRequest[]>([])
 
   // Project state
@@ -160,6 +162,11 @@ export default function DashboardPage() {
   // Saved Designs state (for the active project)
   const [savedDesigns, setSavedDesigns] = useState<ProjectDesign[]>([])
   const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false)
+
+  // State to track unsaved design
+  const [isLatestDesignSaved, setIsLatestDesignSaved] = useState(true)
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
   // Initialize canvas
   useEffect(() => {
@@ -200,7 +207,20 @@ export default function DashboardPage() {
         if (error) throw error
         const fetchedProjects = data || []
         setProjects(fetchedProjects)
-        // Set the first project as active by default if it exists and no project is active
+        
+        // Check for project parameter in URL
+        const projectIdFromUrl = searchParams.get('project')
+        
+        if (projectIdFromUrl) {
+          // Find the project with matching ID
+          const projectFromUrl = fetchedProjects.find(p => p.id === projectIdFromUrl)
+          if (projectFromUrl) {
+            setActiveProject(projectFromUrl)
+            return // Skip setting first project as active
+          }
+        }
+        
+        // Default behavior - set first project as active if it exists and no project is active
         if (fetchedProjects.length > 0 && !activeProject) {
           setActiveProject(fetchedProjects[0])
         } else if (fetchedProjects.length === 0) {
@@ -217,7 +237,7 @@ export default function DashboardPage() {
     }
 
     fetchProjects()
-  }, [user])
+  }, [user, searchParams])
 
   // Fetch saved designs when active project changes
   useEffect(() => {
@@ -580,6 +600,57 @@ export default function DashboardPage() {
     }
   }
 
+  // Effect to update save status when a new design is generated
+  useEffect(() => {
+    if (latestGeneration?.status === 'completed' && latestGeneration.image) {
+      setIsLatestDesignSaved(false)
+    }
+  }, [latestGeneration])
+  
+  // Add beforeunload event listener for browser navigation/refresh
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isLatestDesignSaved && latestGeneration?.status === 'completed' && latestGeneration.image) {
+        // Standard way to show a browser confirmation dialog before leaving
+        event.preventDefault()
+        // Modern browsers require returnValue to be set
+        event.returnValue = ''
+        return ''
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [isLatestDesignSaved, latestGeneration])
+  
+  // Safe navigation handler
+  const handleNavigation = useCallback((href: string) => {
+    if (!isLatestDesignSaved && latestGeneration?.status === 'completed' && latestGeneration.image) {
+      // Show our custom dialog
+      setPendingNavigation(href)
+      setShowNavigationWarning(true)
+    } else {
+      // Safe to navigate
+      window.location.href = href
+    }
+  }, [isLatestDesignSaved, latestGeneration])
+
+  // Confirm navigation and discard changes
+  const confirmNavigation = () => {
+    setShowNavigationWarning(false)
+    if (pendingNavigation) {
+      window.location.href = pendingNavigation
+    }
+  }
+  
+  // Cancel navigation and stay on page
+  const cancelNavigation = () => {
+    setShowNavigationWarning(false)
+    setPendingNavigation(null)
+  }
+
   // Function to handle saving the LATEST generated design to the ACTIVE project
   const handleSaveLatestDesignToProject = async () => {
     if (!activeProject) {
@@ -615,6 +686,9 @@ export default function DashboardPage() {
         // Add the newly saved design to the top of the local state
         setSavedDesigns(prevDesigns => [newDesign, ...prevDesigns])
         toast.success(`Design saved to project "${activeProject.name}"!`)
+        
+        // Mark the latest design as saved
+        setIsLatestDesignSaved(true)
       }
 
     } catch (error: any) {
@@ -627,67 +701,35 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-[#f8f7f5]">
       {/* Toast notifications */}
       <Toaster position="top-right" />
-
-      {/* Request History Modal */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-serif font-bold">Request History</h2>
-              <div className="flex gap-2">
-                <Button
-                  onClick={clearStoredRequests}
-                  className="bg-red-500 hover:bg-red-600 text-white"
-                >
-                  Clear All
-                </Button>
-                <button
-                  onClick={() => setShowHistory(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {storedRequests.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No stored requests</p>
-              ) : (
-                storedRequests.map((request, index) => (
-                  <div key={request.timestamp} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium">Request #{storedRequests.length - index}</h3>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => deleteStoredRequest(request.timestamp)}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p><strong>Style:</strong> {request.style}</p>
-                        <p><strong>Placement:</strong> {request.bodyPlacement}</p>
-                        <p><strong>Detail Level:</strong> {request.detailLevel}</p>
-                        <p><strong>Modifier:</strong> {request.modifier}</p>
-                      </div>
-                      <div>
-                        <p><strong>Description:</strong> {request.description}</p>
-                        {request.negativePrompt && (
-                          <p><strong>Negative Prompt:</strong> {request.negativePrompt}</p>
-                        )}
-                        <p><strong>Date:</strong> {new Date(request.timestamp).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+      
+      {/* Navigation Warning Dialog */}
+      <Dialog open={showNavigationWarning} onOpenChange={setShowNavigationWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved Design</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p className="text-gray-700">
+              You have an unsaved design that will be lost if you navigate away. Would you like to save it first?
+            </p>
           </div>
-        </div>
-      )}
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={confirmNavigation}
+            >
+              Continue Without Saving
+            </Button>
+            <Button
+              type="button"
+              onClick={cancelNavigation}
+            >
+              Go Back and Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Style Selector Modal */}
       {isStyleSelectorOpen && (
@@ -776,10 +818,13 @@ export default function DashboardPage() {
           </div>
 
           <nav className="space-y-1">
-            <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/10 text-white">
+            <div 
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/10 text-white cursor-pointer"
+              onClick={() => handleNavigation('/dashboard')}
+            >
               <Home className="h-4 w-4" />
               <span className="text-sm">Dashboard</span>
-            </Link>
+            </div>
             <button
               onClick={() => {
                 setIsCreatingProject(true)
@@ -850,39 +895,32 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
-            <Link
-              href="/design-guide"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+            <div
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+              onClick={() => handleNavigation(activeProject ? `/design-guide?project=${activeProject.id}` : '/design-guide')}
             >
               <BookOpen className="h-4 w-4" />
               <span className="text-sm">Design Guide</span>
-            </Link>
+            </div>
           </nav>
         </div>
 
         {/* Bottom navigation */}
         <div className="p-4 space-y-1">
-          <Link
-            href="/settings"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+            onClick={() => handleNavigation('/settings')}
           >
             <Settings className="h-4 w-4" />
             <span className="text-sm">Settings</span>
-          </Link>
-          <Link
-            href="/help"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+          </div>
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
+            onClick={() => handleNavigation('/help')}
           >
             <HelpCircle className="h-4 w-4" />
             <span className="text-sm">Help</span>
-          </Link>
-          <button
-            onClick={() => setShowHistory(true)}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
-          >
-            <History className="h-4 w-4" />
-            <span className="text-sm">History</span>
-          </button>
+          </div>
         </div>
 
         {/* User profile at bottom of sidebar */}
@@ -895,11 +933,16 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={async () => {
-              const { error } = await supabase.auth.signOut()
-              if (error) {
-                toast.error('Failed to logout')
+              if (!isLatestDesignSaved && latestGeneration?.status === 'completed' && latestGeneration.image) {
+                setPendingNavigation('/login')
+                setShowNavigationWarning(true)
               } else {
-                window.location.href = '/login'
+                const { error } = await supabase.auth.signOut()
+                if (error) {
+                  toast.error('Failed to logout')
+                } else {
+                  window.location.href = '/login'
+                }
               }
             }}
             className="mt-2 w-full text-xs text-gray-400 hover:text-white hover:bg-white/10 rounded-md px-2 py-1"
