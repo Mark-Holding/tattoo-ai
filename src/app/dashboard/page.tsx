@@ -104,6 +104,19 @@ interface Project {
   updated_at: string;
 }
 
+// Define ProjectDesign type based on schema
+interface ProjectDesign {
+  id: string;
+  project_id: string;
+  image_url: string;
+  style?: string;
+  body_placement?: string;
+  detail_level?: string;
+  modifier?: string;
+  description?: string;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const { user } = useUser()
   const [description, setDescription] = useState("")
@@ -142,6 +155,11 @@ export default function DashboardPage() {
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
   const newProjectInputRef = useRef<HTMLInputElement>(null)
+  const [activeProject, setActiveProject] = useState<Project | null>(null)
+
+  // Saved Designs state (for the active project)
+  const [savedDesigns, setSavedDesigns] = useState<ProjectDesign[]>([])
+  const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false)
 
   // Initialize canvas
   useEffect(() => {
@@ -180,7 +198,15 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setProjects(data || [])
+        const fetchedProjects = data || []
+        setProjects(fetchedProjects)
+        // Set the first project as active by default if it exists and no project is active
+        if (fetchedProjects.length > 0 && !activeProject) {
+          setActiveProject(fetchedProjects[0])
+        } else if (fetchedProjects.length === 0) {
+          // If no projects exist, ensure activeProject is null
+          setActiveProject(null)
+        }
       } catch (error: any) {
         toast.error(`Failed to fetch projects: ${error.message}`)
         console.error("Error fetching projects:", error)
@@ -192,6 +218,36 @@ export default function DashboardPage() {
 
     fetchProjects()
   }, [user])
+
+  // Fetch saved designs when active project changes
+  useEffect(() => {
+    const fetchSavedDesigns = async () => {
+      if (!activeProject) {
+        setSavedDesigns([]) // Clear designs if no project is active
+        return
+      }
+
+      setIsLoadingSavedDesigns(true)
+      try {
+        const { data, error } = await supabase
+          .from('project_designs')
+          .select('*')
+          .eq('project_id', activeProject.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        setSavedDesigns(data || [])
+      } catch (error: any) {
+        toast.error(`Failed to fetch saved designs: ${error.message}`)
+        console.error("Error fetching saved designs:", error)
+        setSavedDesigns([])
+      } finally {
+        setIsLoadingSavedDesigns(false)
+      }
+    }
+
+    fetchSavedDesigns()
+  }, [activeProject])
 
   // Focus input when it appears
   useEffect(() => {
@@ -524,6 +580,49 @@ export default function DashboardPage() {
     }
   }
 
+  // Function to handle saving the LATEST generated design to the ACTIVE project
+  const handleSaveLatestDesignToProject = async () => {
+    if (!activeProject) {
+      toast.error("Please select a project first.")
+      return
+    }
+    if (!latestGeneration?.image) {
+      toast.error("No generated image to save.")
+      return
+    }
+
+    try {
+      const designData: Omit<ProjectDesign, 'id' | 'created_at'> = {
+        project_id: activeProject.id,
+        image_url: latestGeneration.image,
+        // Optionally add other relevant data from the generation settings
+        style: selectedStyle,
+        body_placement: selectedPlacement,
+        detail_level: detailLevel,
+        modifier: selectedModifier,
+        description: description, // Use the main description input?
+      }
+
+      const { data: newDesign, error } = await supabase
+        .from('project_designs')
+        .insert(designData)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (newDesign) {
+        // Add the newly saved design to the top of the local state
+        setSavedDesigns(prevDesigns => [newDesign, ...prevDesigns])
+        toast.success(`Design saved to project "${activeProject.name}"!`)
+      }
+
+    } catch (error: any) {
+      toast.error(`Failed to save design: ${error.message}`)
+      console.error("Error saving design:", error)
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#f8f7f5]">
       {/* Toast notifications */}
@@ -711,23 +810,37 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {/* Project List */}
                 {isLoadingProjects ? (
                   <p className="text-xs text-gray-500 px-2 py-0.5">Loading projects...</p>
                 ) : projects.length === 0 && !isCreatingProject ? (
                    <p className="text-xs text-gray-500 px-2 py-0.5">No projects yet</p>
                 ) : (
                   projects.map((project) => (
-                    <div key={project.id} className="group flex items-center justify-between hover:bg-white/10 rounded-md">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="flex-grow block px-2 py-0.5 text-xs text-gray-400 group-hover:text-white truncate"
+                    <div 
+                      key={project.id} 
+                      className={`group flex items-center justify-between rounded-md cursor-pointer ${
+                        activeProject?.id === project.id ? 'bg-white/20' : 'hover:bg-white/10' // Highlight active project
+                      }`}
+                      onClick={() => setActiveProject(project)} // Set project as active on click
+                    >
+                      {/* Changed Link to span/div as click is handled by parent */}
+                      <span
+                        className={`flex-grow block px-2 py-0.5 text-xs truncate ${
+                          activeProject?.id === project.id ? 'text-white font-medium' : 'text-gray-400 group-hover:text-white'
+                        }`}
                         title={project.name}
                       >
                         {project.name}
-                      </Link>
+                      </span>
                       <button
-                        onClick={() => handleDeleteProject(project.id, project.name)}
-                        className="p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1"
+                        onClick={(e) => { 
+                          e.stopPropagation(); // Prevent setting active project when deleting
+                          handleDeleteProject(project.id, project.name)
+                        }}
+                        className={`p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1 ${
+                          activeProject?.id === project.id ? 'opacity-100' : '' // Keep visible if active
+                        }`}
                         title="Delete project"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -799,9 +912,9 @@ export default function DashboardPage() {
       {/* Main content */}
       <main className="ml-44 flex-1">
         {/* Project header */}
-        <header className="border-b border-gray-400 bg-[#f8f7f5] p-4">
+        <header className="border-b border-gray-400 bg-[#f8f7f5] p-4 sticky top-0 z-10">
           <div className="container mx-auto">
-            <h1 className="text-2xl font-serif font-bold">Untitled Project</h1>
+            <h1 className="text-2xl font-serif font-bold">{activeProject?.name || 'Select or Create a Project'}</h1>
           </div>
         </header>
 
@@ -1042,18 +1155,10 @@ export default function DashboardPage() {
                   <button 
                     className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
                     disabled={latestGeneration?.status !== 'completed'}
-                    onClick={() => {
-                      if (latestGeneration?.image) {
-                        setGeneratedDesigns(prev => [{
-                          id: Date.now(),
-                          image: latestGeneration.image
-                        }, ...prev])
-                        toast.success('Design saved!')
-                      }
-                    }}
+                    onClick={handleSaveLatestDesignToProject}
                   >
                     <Edit className="h-5 w-5" />
-                    <span>Save</span>
+                    <span>Save to Project</span>
                   </button>
                   <button 
                     className={`flex items-center gap-2 ${latestGeneration?.status !== 'completed' ? 'text-gray-400 cursor-not-allowed' : 'hover:text-purple-600'}`}
@@ -1074,36 +1179,61 @@ export default function DashboardPage() {
 
               {/* Saved Designs Grid */}
               <div>
-                <h2 className="text-xl font-serif font-bold mb-4">Saved Designs</h2>
-                <div className="grid grid-cols-3 gap-4">
-                  {generatedDesigns.map((design) => (
-                    <div key={design.id} className="bg-white border border-gray-400 rounded-lg overflow-hidden">
-                      <div className="relative w-full h-48">
-                        <Image
-                          src={design.image}
-                          alt={`Generated design ${design.id}`}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          className="object-cover rounded-lg"
-                        />
+                <h2 className="text-xl font-serif font-bold mb-4">
+                  Saved Designs {activeProject ? `for "${activeProject.name}"` : ''}
+                </h2>
+                {isLoadingSavedDesigns ? (
+                   <p className="text-gray-500 text-center py-4">Loading saved designs...</p>
+                ) : savedDesigns.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">
+                    {activeProject ? 'No designs saved for this project yet.' : 'Select a project to view saved designs.'}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    {savedDesigns.map((design) => (
+                      <div key={design.id} className="bg-white border border-gray-400 rounded-lg overflow-hidden">
+                        <div className="relative w-full h-48">
+                          <Image
+                            src={design.image_url}
+                            alt={`Saved design ${design.id}`}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            className="object-cover rounded-lg"
+                          />
+                        </div>
+                        <div className="border-t border-gray-400 p-2 flex items-center justify-center gap-2">
+                          <button className="p-1 hover:text-purple-600" title="Favourite (Not implemented)">
+                            <Heart className="h-4 w-4" />
+                          </button>
+                          <button className="p-1 hover:text-purple-600" title="Download (Not implemented)">
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <button 
+                            className="p-1 hover:text-red-500"
+                            onClick={async () => {
+                              if (window.confirm('Are you sure you want to delete this saved design?')) {
+                                try {
+                                  const { error } = await supabase
+                                    .from('project_designs')
+                                    .delete()
+                                    .eq('id', design.id);
+                                  if (error) throw error;
+                                  setSavedDesigns(prev => prev.filter(d => d.id !== design.id));
+                                  toast.success('Saved design deleted.');
+                                } catch (err: any) {
+                                  toast.error(`Failed to delete saved design: ${err.message}`);
+                                }
+                              }
+                            }}
+                            title="Delete saved design"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="border-t border-gray-400 p-2 flex items-center justify-center gap-2">
-                        <button className="p-1 hover:text-purple-600">
-                          <Heart className="h-4 w-4" />
-                        </button>
-                        <button className="p-1 hover:text-purple-600">
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button 
-                          className="p-1 hover:text-purple-600"
-                          onClick={() => setGeneratedDesigns(prev => prev.filter(d => d.id !== design.id))}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
