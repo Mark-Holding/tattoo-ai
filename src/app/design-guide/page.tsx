@@ -3,9 +3,12 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Flower, Home, FileText, PlusCircle, Settings, HelpCircle, User, BookOpen } from "lucide-react"
+import { Flower, Home, FileText, PlusCircle, Settings, HelpCircle, User, BookOpen, Trash2 } from "lucide-react"
 import { toast } from "react-hot-toast"
 import { supabase } from "@/lib/supabase"
+import { useUser } from "@/contexts/UserContext"
+import { Input } from "@/components/ui/input"
+import { useState, useEffect, useRef } from "react"
 
 // Tattoo styles data
 const tattooStyles = [
@@ -136,26 +139,124 @@ const tattooStyles = [
   },
 ]
 
-// Sample projects
-const sampleProjects = [
-  {
-    id: 1,
-    name: "Floral Sleeve Design",
-    date: "2 days ago",
-  },
-  {
-    id: 2,
-    name: "Geometric Back Piece",
-    date: "1 week ago",
-  },
-  {
-    id: 3,
-    name: "Minimalist Wrist Tattoo",
-    date: "2 weeks ago",
-  },
-]
+// Define Project type based on schema
+interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function DesignGuidePage() {
+  const { user } = useUser()
+
+  // Project state
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState("")
+  const newProjectInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch projects on mount and when user changes
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return
+
+      setIsLoadingProjects(true)
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        setProjects(data || [])
+      } catch (error: any) {
+        toast.error(`Failed to fetch projects: ${error.message}`)
+        console.error("Error fetching projects:", error)
+        setProjects([])
+      } finally {
+        setIsLoadingProjects(false)
+      }
+    }
+
+    fetchProjects()
+  }, [user])
+
+  // Focus input when it appears
+  useEffect(() => {
+    if (isCreatingProject && newProjectInputRef.current) {
+      newProjectInputRef.current.focus()
+    }
+  }, [isCreatingProject])
+
+  // Handle creating a new project
+  const handleCreateProject = async () => {
+    const projectName = newProjectName.trim()
+    if (!projectName || !user) {
+      setNewProjectName("")
+      setIsCreatingProject(false)
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ name: projectName, user_id: user.id })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setProjects(prevProjects => [data, ...prevProjects])
+      }
+      toast.success(`Project "${projectName}" created!`)
+
+    } catch (error: any) {
+      toast.error(`Failed to create project: ${error.message}`)
+      console.error("Error creating project:", error)
+    } finally {
+      setNewProjectName("")
+      setIsCreatingProject(false)
+    }
+  }
+
+  // Handle deleting a project
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (window.confirm(`Are you sure you want to permanently delete the project "${projectName}"? This action cannot be undone.`)) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('id', projectId)
+
+        if (error) throw error
+
+        // Remove project from local state
+        setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId))
+        toast.success(`Project "${projectName}" deleted.`)
+
+      } catch (error: any) {
+        toast.error(`Failed to delete project: ${error.message}`)
+        console.error("Error deleting project:", error)
+      }
+    }
+  }
+
+  // Handle Enter key in new project input
+  const handleNewProjectKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleCreateProject()
+    } else if (e.key === 'Escape') {
+      setNewProjectName("")
+      setIsCreatingProject(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#f8f7f5]">
       {/* Sidebar */}
@@ -174,29 +275,60 @@ export default function DesignGuidePage() {
               <Home className="h-4 w-4" />
               <span className="text-sm">Dashboard</span>
             </Link>
-            <Link
-              href="/new-project"
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
+            <button
+              onClick={() => {
+                setIsCreatingProject(true)
+              }}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white"
             >
               <PlusCircle className="h-4 w-4" />
               <span className="text-sm">Create New</span>
-            </Link>
+            </button>
             <div>
               <div className="flex items-center gap-2 px-2 py-1.5 rounded-md text-gray-300 hover:bg-white/10 hover:text-white">
                 <FileText className="h-4 w-4" />
                 <span className="text-sm">My Projects</span>
               </div>
-              <div className="ml-6 mt-1 space-y-1">
-                {sampleProjects.map((project) => (
-                  <Link
-                    key={project.id}
-                    href={`/projects/${project.id}`}
-                    className="block px-2 py-0.5 text-xs text-gray-400 hover:text-white"
-                  >
-                    {project.name}
-                    <div className="text-xs text-gray-500">{project.date}</div>
-                  </Link>
-                ))}
+              <div className="ml-2 mt-1 space-y-0.5 pr-2">
+                {isCreatingProject && (
+                  <div className="px-2 py-0.5">
+                    <Input
+                      ref={newProjectInputRef}
+                      type="text"
+                      placeholder="New Project Name..."
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      onBlur={handleCreateProject}
+                      onKeyDown={handleNewProjectKeyDown}
+                      className="h-6 px-1 py-0 text-xs bg-black/20 border-gray-600 focus:border-white focus:ring-0 text-white placeholder:text-gray-500 rounded"
+                    />
+                  </div>
+                )}
+
+                {isLoadingProjects ? (
+                  <p className="text-xs text-gray-500 px-2 py-0.5">Loading projects...</p>
+                ) : projects.length === 0 && !isCreatingProject ? (
+                  <p className="text-xs text-gray-500 px-2 py-0.5">No projects yet</p>
+                ) : (
+                  projects.map((project) => (
+                    <div key={project.id} className="group flex items-center justify-between hover:bg-white/10 rounded-md">
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className="flex-grow block px-2 py-0.5 text-xs text-gray-400 group-hover:text-white truncate"
+                        title={project.name}
+                      >
+                        {project.name}
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteProject(project.id, project.name)}
+                        className="p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1"
+                        title="Delete project"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
             <Link href="/design-guide" className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/10 text-white">
