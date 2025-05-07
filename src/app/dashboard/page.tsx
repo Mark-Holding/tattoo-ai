@@ -856,43 +856,45 @@ export default function DashboardPage() {
                 )}
 
                 {/* Project List */}
-                {isLoadingProjects ? (
-                  <p className="text-xs text-gray-500 px-2 py-0.5">Loading projects...</p>
-                ) : projects.length === 0 && !isCreatingProject ? (
-                   <p className="text-xs text-gray-500 px-2 py-0.5">No projects yet</p>
-                ) : (
-                  projects.map((project) => (
-                    <div 
-                      key={project.id} 
-                      className={`group flex items-center justify-between rounded-md cursor-pointer ${
-                        activeProject?.id === project.id ? 'bg-white/20' : 'hover:bg-white/10' // Highlight active project
-                      }`}
-                      onClick={() => setActiveProject(project)} // Set project as active on click
-                    >
-                      {/* Changed Link to span/div as click is handled by parent */}
-                      <span
-                        className={`flex-grow block px-2 py-0.5 text-xs truncate ${
-                          activeProject?.id === project.id ? 'text-white font-medium' : 'text-gray-400 group-hover:text-white'
+                <div className="max-h-[180px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent">
+                  {isLoadingProjects ? (
+                    <p className="text-xs text-gray-500 px-2 py-0.5">Loading projects...</p>
+                  ) : projects.length === 0 && !isCreatingProject ? (
+                     <p className="text-xs text-gray-500 px-2 py-0.5">No projects yet</p>
+                  ) : (
+                    projects.map((project) => (
+                      <div 
+                        key={project.id} 
+                        className={`group flex items-center justify-between rounded-md cursor-pointer ${
+                          activeProject?.id === project.id ? 'bg-white/20' : 'hover:bg-white/10' // Highlight active project
                         }`}
-                        title={project.name}
+                        onClick={() => setActiveProject(project)} // Set project as active on click
                       >
-                        {project.name}
-                      </span>
-                      <button
-                        onClick={(e) => { 
-                          e.stopPropagation(); // Prevent setting active project when deleting
-                          handleDeleteProject(project.id, project.name)
-                        }}
-                        className={`p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1 ${
-                          activeProject?.id === project.id ? 'opacity-100' : '' // Keep visible if active
-                        }`}
-                        title="Delete project"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))
-                )}
+                        {/* Changed Link to span/div as click is handled by parent */}
+                        <span
+                          className={`flex-grow block px-2 py-0.5 text-xs truncate ${
+                            activeProject?.id === project.id ? 'text-white font-medium' : 'text-gray-400 group-hover:text-white'
+                          }`}
+                          title={project.name}
+                        >
+                          {project.name}
+                        </span>
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation(); // Prevent setting active project when deleting
+                            handleDeleteProject(project.id, project.name)
+                          }}
+                          className={`p-1 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 mr-1 ${
+                            activeProject?.id === project.id ? 'opacity-100' : '' // Keep visible if active
+                          }`}
+                          title="Delete project"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
             <div

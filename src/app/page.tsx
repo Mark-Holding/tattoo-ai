@@ -103,13 +103,16 @@ export default function LandingPage() {
               </p>
 
               {/* Start Designing Button */}
-              <Button
-                size="lg"
-                className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
-              >
-                <Upload className="h-5 w-5" />
-                Start Designing
-              </Button>
+              <Link href="/design-widget" passHref legacyBehavior>
+                <Button
+                  size="lg"
+                  className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
+                >
+                  <Upload className="h-5 w-5" />
+                  Try For Free
+                </Button>
+              </Link>
+              <p className="mt-2 text-xs text-gray-400 text-center">No Sign Up Or Payment Card Info Required</p>
             </div>
 
             {/* Horizontal Scrolling Image Rows */}
@@ -310,6 +313,40 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="mx-auto flex flex-col md:flex-row max-w-5xl gap-6 py-12">
+              {/* Free Plan */}
+              <div className="flex flex-col rounded-xl border-2 border-green-500 bg-green-50 p-6 hover:border-green-600 transition-all relative">
+                <div className="absolute -top-4 left-0 right-0 mx-auto w-fit rounded-full bg-green-500 px-3 py-1 text-xs font-medium text-white">
+                  Free Trial
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-serif font-bold text-green-900">Free</h3>
+                  <p className="text-gray-600">Try the app with no commitment</p>
+                </div>
+                <div className="mt-4 flex items-baseline">
+                  <span className="text-3xl font-bold text-green-900">$0</span>
+                  <span className="ml-1 text-gray-600">/month</span>
+                </div>
+                <ul className="mt-6 space-y-2">
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-green-900" />
+                    <span>3 free model runs</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-green-900" />
+                    <span>Guided design wizard</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-green-900" />
+                    <span>Limited tattoo styles</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-green-900" />
+                    <span>Perfect for trying the app</span>
+                  </li>
+                </ul>
+                <Button className="mt-8 bg-green-600 hover:bg-green-700 text-white">Start Free</Button>
+              </div>
+
               {/* Basic Plan */}
               <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 p-6 hover:border-gray-300 transition-all">
                 <div className="space-y-2">
@@ -336,6 +373,10 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2 text-gray-600">
                     <CheckCircle className="h-4 w-4 text-black" />
                     <span>Email support</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-black" />
+                    <span>Reference photo uploads</span>
                   </li>
                 </ul>
                 <Button className="mt-8 bg-black hover:bg-gray-800 text-white">Get Started</Button>
@@ -373,7 +414,19 @@ export default function LandingPage() {
                   </li>
                   <li className="flex items-center gap-2 text-gray-600">
                     <CheckCircle className="h-4 w-4 text-black" />
+                    <span>Email support</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-black" />
+                    <span>Reference photo uploads</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-black" />
                     <span>Priority support</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-black" />
+                    <span>Reference photo uploads</span>
                   </li>
                 </ul>
                 <Button className="mt-8 bg-black hover:bg-gray-800 text-white">Get Started</Button>
@@ -414,6 +467,10 @@ export default function LandingPage() {
                     <CheckCircle className="h-4 w-4 text-black" />
                     <span>Artist promotion</span>
                   </li>
+                  <li className="flex items-center gap-2 text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-black" />
+                    <span>Reference photo uploads</span>
+                  </li>
                 </ul>
                 <Button variant="outline" className="mt-8 border-black text-black hover:bg-gray-100">
                   Contact Sales
@@ -436,13 +493,15 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Button
-                  size="lg"
-                  className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
-                >
-                  <Upload className="h-5 w-5" />
-                  Start Designing
-                </Button>
+                <Link href="/design-widget" passHref legacyBehavior>
+                  <Button
+                    size="lg"
+                    className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
+                  >
+                    <Upload className="h-5 w-5" />
+                    Try For Free
+                  </Button>
+                </Link>
                 <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
                   Book a Demo
                 </Button>
