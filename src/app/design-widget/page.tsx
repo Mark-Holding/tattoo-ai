@@ -147,25 +147,33 @@ export default function Home() {
             <p className="text-xs text-gray-400">© {new Date().getFullYear()} Tattoo. All rights reserved.</p>
             <div className="flex gap-4">
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Twitter className="h-5 w-5" />
-                <span className="sr-only">Twitter</span>
+                <div className="flex items-center">
+                  <Twitter className="h-5 w-5" />
+                  <span className="sr-only">Twitter</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Facebook className="h-5 w-5" />
-                <span className="sr-only">Facebook</span>
+                <div className="flex items-center">
+                  <Facebook className="h-5 w-5" />
+                  <span className="sr-only">Facebook</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Instagram className="h-5 w-5" />
-                <span className="sr-only">Instagram</span>
+                <div className="flex items-center">
+                  <Instagram className="h-5 w-5" />
+                  <span className="sr-only">Instagram</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Linkedin className="h-5 w-5" />
-                <span className="sr-only">LinkedIn</span>
+                <div className="flex items-center">
+                  <Linkedin className="h-5 w-5" />
+                  <span className="sr-only">LinkedIn</span>
+                </div>
               </Link>
             </div>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }

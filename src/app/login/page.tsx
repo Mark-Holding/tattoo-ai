@@ -162,13 +162,12 @@ export default function LoginPage() {
       {/* Header */}
       <header className="w-full border-b border-gray-800 bg-[#1e1e1e]/80 backdrop-blur-md">
         <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" legacyBehavior>
             <Flower className="h-6 w-6 text-white" />
             <span className="text-xl font-serif font-bold text-white">Tattoo</span>
           </Link>
         </div>
       </header>
-
       <main className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-md">
           <Tabs defaultValue="login" className="w-full">
@@ -371,7 +370,6 @@ export default function LoginPage() {
           </Tabs>
         </div>
       </main>
-
       <footer className="py-6 border-t border-gray-800 bg-[#1e1e1e]">
         <div className="container flex flex-col items-center justify-center gap-4 text-center md:flex-row md:justify-between">
           <p className="text-xs text-gray-400">© {new Date().getFullYear()} Tattoo. All rights reserved.</p>
@@ -389,5 +387,5 @@ export default function LoginPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

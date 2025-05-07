@@ -85,7 +85,6 @@ export default function LandingPage() {
           </Link>
         </div>
       </header>
-
       <main className="flex-1">
         {/* Hero Section */}
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 relative overflow-hidden">
@@ -103,7 +102,7 @@ export default function LandingPage() {
               </p>
 
               {/* Start Designing Button */}
-              <Link href="/design-widget" passHref legacyBehavior>
+              <Link href="/design-widget">
                 <Button
                   size="lg"
                   className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
@@ -493,7 +492,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Link href="/design-widget" passHref legacyBehavior>
+                <Link href="/design-widget">
                   <Button
                     size="lg"
                     className="gap-2 bg-white hover:bg-gray-100 text-black px-8 py-6 rounded-md shadow-lg transition-all"
@@ -511,7 +510,6 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-
       {/* Footer */}
       <footer className="w-full border-t border-gray-800 bg-[#1e1e1e] py-6 md:py-12">
         <div className="container px-4 md:px-6">
@@ -605,25 +603,33 @@ export default function LandingPage() {
             <p className="text-xs text-gray-400">© {new Date().getFullYear()} Tattoo. All rights reserved.</p>
             <div className="flex gap-4">
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Twitter className="h-5 w-5" />
-                <span className="sr-only">Twitter</span>
+                <div className="flex items-center">
+                  <Twitter className="h-5 w-5" />
+                  <span className="sr-only">Twitter</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Facebook className="h-5 w-5" />
-                <span className="sr-only">Facebook</span>
+                <div className="flex items-center">
+                  <Facebook className="h-5 w-5" />
+                  <span className="sr-only">Facebook</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Instagram className="h-5 w-5" />
-                <span className="sr-only">Instagram</span>
+                <div className="flex items-center">
+                  <Instagram className="h-5 w-5" />
+                  <span className="sr-only">Instagram</span>
+                </div>
               </Link>
               <Link href="#" className="text-gray-400 hover:text-white">
-                <Linkedin className="h-5 w-5" />
-                <span className="sr-only">LinkedIn</span>
+                <div className="flex items-center">
+                  <Linkedin className="h-5 w-5" />
+                  <span className="sr-only">LinkedIn</span>
+                </div>
               </Link>
             </div>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
